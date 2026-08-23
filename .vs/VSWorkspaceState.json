@@ -1,0 +1,14 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\frontend",
+    "\\frontend\\build",
+    "\\frontend\\build\\windows",
+    "\\frontend\\build\\windows\\x64",
+    "\\frontend\\build\\windows\\x64\\CMakeFiles",
+    "\\frontend\\build\\windows\\x64\\CMakeFiles\\4.3.1-msvc1",
+    "\\frontend\\build\\windows\\x64\\CMakeFiles\\4.3.1-msvc1\\CompilerIdCXX"
+  ],
+  "SelectedNode": "\\frontend\\build\\windows\\x64\\CMakeFiles\\4.3.1-msvc1\\CompilerIdCXX\\CompilerIdCXX.vcxproj",
+  "PreviewInSolutionExplorer": false
+}
