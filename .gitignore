@@ -13,10 +13,9 @@ npm-debug.log*
 .pub/
 build/
 
-# IDE & OS
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-*.swp
-*.bak
+# Release Artifacts
+*.zip
+*.apk
+*.ipa
+*.aab
+
