@@ -54,16 +54,29 @@ import 'features/users/screens/new_chat_screen.dart';
 import 'features/users/screens/user_profile_screen.dart';
 import 'features/welcome/welcome_screen.dart';
 
+import 'core/services/diagnostics_service.dart';
+import 'features/diagnostics/startup_error_screen.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
     debugPrint('Uncaught Flutter Error: ${details.exception}');
+    DiagnosticsService.instance.recordStartupError(
+      stage: 'flutter_runtime',
+      error: details.exception,
+      stack: details.stack,
+    );
   };
 
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     debugPrint('Uncaught Platform Error: $error');
+    DiagnosticsService.instance.recordStartupError(
+      stage: 'async_platform',
+      error: error,
+      stack: stack,
+    );
     return true;
   };
 
@@ -72,8 +85,13 @@ Future<void> main() async {
       url: SupabaseConfig.url,
       publishableKey: SupabaseConfig.publishableKey,
     );
-  } catch (e) {
+  } catch (e, stack) {
     debugPrint('Supabase Initialization Exception (non-fatal): $e');
+    DiagnosticsService.instance.recordStartupError(
+      stage: 'supabase_init',
+      error: e,
+      stack: stack,
+    );
   }
 
   runApp(const VoyagerChatApp());
@@ -285,6 +303,10 @@ class _VoyagerChatAppState extends State<VoyagerChatApp>
         GoRoute(
           path: '/settings/diagnostics',
           builder: (context, state) => const DiagnosticsScreen(),
+        ),
+        GoRoute(
+          path: '/startup-error',
+          builder: (context, state) => const StartupErrorScreen(),
         ),
         GoRoute(
           path: '/settings/nearby',
