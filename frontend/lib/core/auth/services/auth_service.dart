@@ -19,11 +19,7 @@ class AuthService {
 
   static final AuthService instance = AuthService._();
 
-  AuthUser? _currentUser = const AuthUser(
-    id: 'usr_default_voyager',
-    email: 'user@voyager.chat',
-    displayName: 'Voyager User',
-  );
+  AuthUser? _currentUser;
 
   final StreamController<AuthUser?> _authStateController =
       StreamController<AuthUser?>.broadcast();
