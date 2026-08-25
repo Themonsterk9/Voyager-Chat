@@ -140,9 +140,20 @@ class AuthService {
   }
 
   String get backendBaseUrl {
-    if (kIsWeb) return 'http://localhost:3000';
-    if (!kIsWeb && Platform.isAndroid) return 'http://10.0.2.2:3000';
-    return 'http://127.0.0.1:3000';
+    const envUrl = String.fromEnvironment('BACKEND_URL', defaultValue: '');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+    if (kIsWeb) {
+      return 'http://localhost:3000';
+    }
+    if (!kIsWeb && Platform.isAndroid && kDebugMode) {
+      return 'http://10.0.2.2:3000';
+    }
+    if (kDebugMode) {
+      return 'http://127.0.0.1:3000';
+    }
+    return 'https://api.voyager.chat';
   }
 
   Future<bool> sendBrevoOtp(

@@ -209,6 +209,15 @@ flutter pub get
 flutter run -d windows
 ```
 
+### Android User Installation
+
+1. Open the [GitHub Releases](https://github.com/Themonsterk9/Voyager-Chat/releases) page on your Android device.
+2. Download `Voyager-Chat-Android-v1.0.0.apk`.
+3. Tap the downloaded APK file to install it.
+4. If Android displays a security notice because the APK is installed directly outside Google Play, tap **Settings** and enable **Allow from this source** to proceed safely.
+5. Launch **Voyager Chat**.
+6. Register a new account or log in.
+
 ---
 
 ## Testing & Verification
