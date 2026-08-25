@@ -338,7 +338,7 @@ class AuthService {
       final String clientId = (!kIsWeb && Platform.isAndroid)
           ? const String.fromEnvironment(
               'GOOGLE_CLIENT_ID_ANDROID',
-              defaultValue: 'YOUR_GOOGLE_CLIENT_ID_ANDROID',
+              defaultValue: '719816304147-05crcmeh1glc8mdf2p8h6ebhjijo3o78.apps.googleusercontent.com',
             )
           : (!kIsWeb && Platform.isIOS)
           ? const String.fromEnvironment(
@@ -347,7 +347,7 @@ class AuthService {
             )
           : const String.fromEnvironment(
               'GOOGLE_CLIENT_ID',
-              defaultValue: 'YOUR_GOOGLE_CLIENT_ID_WINDOWS',
+              defaultValue: '719816304147-h9j6u748fj294ikul4fjtd1k7o2c7efc.apps.googleusercontent.com',
             );
       final state = _generateRandomString(16);
       final codeVerifier = _generateRandomString(32);
