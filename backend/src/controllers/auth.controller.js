@@ -92,11 +92,15 @@ async function handleGoogleAuth(req, res) {
     const effectiveClientId = client_id || googleClientId;
     const params = new URLSearchParams({
       client_id: effectiveClientId,
-      client_secret: googleClientSecret,
       code: code,
       grant_type: 'authorization_code',
       redirect_uri: redirect_uri || '',
     });
+
+    if (googleClientSecret && effectiveClientId === googleClientId) {
+      params.append('client_secret', googleClientSecret);
+    }
+
     if (code_verifier) {
       params.append('code_verifier', code_verifier);
     }
