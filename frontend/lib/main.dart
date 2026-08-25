@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
@@ -55,10 +57,24 @@ import 'features/welcome/welcome_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    publishableKey: SupabaseConfig.publishableKey,
-  );
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('Uncaught Flutter Error: ${details.exception}');
+  };
+
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('Uncaught Platform Error: $error');
+    return true;
+  };
+
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      publishableKey: SupabaseConfig.publishableKey,
+    );
+  } catch (e) {
+    debugPrint('Supabase Initialization Exception (non-fatal): $e');
+  }
 
   runApp(const VoyagerChatApp());
 }
@@ -83,18 +99,40 @@ class _VoyagerChatAppState extends State<VoyagerChatApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    E2eeService.instance.initialize(
-      userId: 'local-user',
-      deviceId: 'device-local-1',
-    );
-    NotificationManager.instance.initialize();
-
-    if (!widget.testMode) {
-      UserRepository.instance.updatePresence('online');
+    try {
+      E2eeService.instance.initialize(
+        userId: 'local-user',
+        deviceId: 'device-local-1',
+      );
+    } catch (e) {
+      debugPrint('E2eeService initialization warning: $e');
     }
 
-    TransportManager.instance.initialize(myDeviceId: 'device-local-1');
-    ConnectivitySyncService.instance.start();
+    try {
+      NotificationManager.instance.initialize();
+    } catch (e) {
+      debugPrint('NotificationManager initialization warning: $e');
+    }
+
+    if (!widget.testMode) {
+      try {
+        UserRepository.instance.updatePresence('online');
+      } catch (e) {
+        debugPrint('UserRepository presence update warning: $e');
+      }
+    }
+
+    try {
+      TransportManager.instance.initialize(myDeviceId: 'device-local-1');
+    } catch (e) {
+      debugPrint('TransportManager initialization warning: $e');
+    }
+
+    try {
+      ConnectivitySyncService.instance.start();
+    } catch (e) {
+      debugPrint('ConnectivitySyncService start warning: $e');
+    }
 
     if (!widget.testMode) {
       _authRefreshNotifier = _AuthRefreshNotifier();
