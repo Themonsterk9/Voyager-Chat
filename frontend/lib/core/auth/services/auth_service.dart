@@ -187,7 +187,9 @@ class AuthService {
     } on TimeoutException {
       throw Exception('Unable to contact authentication server.');
     } on SocketException {
-      return true;
+      throw Exception(
+        'Authentication server is currently offline. Please check your network connection.',
+      );
     } catch (e) {
       if (e is Exception) rethrow;
       throw Exception('Unable to send OTP. Please try again.');
@@ -233,7 +235,9 @@ class AuthService {
     } on TimeoutException {
       throw Exception('Unable to contact authentication server.');
     } on SocketException {
-      // Standalone test fallback
+      throw Exception(
+        'Authentication server is currently offline. Unable to verify OTP.',
+      );
     } catch (e) {
       if (e is Exception) rethrow;
       throw Exception('Invalid OTP code. Please try again.');
@@ -345,11 +349,6 @@ class AuthService {
               'GOOGLE_CLIENT_ID',
               defaultValue: 'YOUR_GOOGLE_CLIENT_ID_WINDOWS',
             );
-      const String clientSecret = String.fromEnvironment(
-        'GOOGLE_CLIENT_SECRET',
-        defaultValue: 'YOUR_GOOGLE_CLIENT_SECRET',
-      );
-
       final state = _generateRandomString(16);
       final codeVerifier = _generateRandomString(32);
       final codeChallenge = _createCodeChallenge(codeVerifier);
@@ -467,51 +466,31 @@ class AuthService {
 
       await server.close();
 
-      final tokenResponse = await http.post(
-        Uri.parse('https://oauth2.googleapis.com/token'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: {
-          'client_id': clientId,
-          'client_secret': clientSecret,
+      final backendResponse = await http.post(
+        Uri.parse('$backendBaseUrl/api/auth/google'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
           'code': authCode,
-          'grant_type': 'authorization_code',
           'redirect_uri': redirectUri,
           'code_verifier': codeVerifier,
-        },
+          'client_id': clientId,
+        }),
       );
 
-      if (tokenResponse.statusCode != 200) {
+      if (backendResponse.statusCode != 200) {
+        final errData = jsonDecode(backendResponse.body);
         throw Exception(
-          'Failed to exchange token with Google: ${tokenResponse.body}',
+          errData['message'] ?? 'Google authentication failed on backend.',
         );
       }
 
-      final tokenData = jsonDecode(tokenResponse.body) as Map<String, dynamic>;
-      final accessToken = tokenData['access_token'] as String?;
-
-      if (accessToken == null || accessToken.isEmpty) {
-        throw Exception('No access token received from Google.');
-      }
-
-      final userResponse = await http.get(
-        Uri.parse('https://www.googleapis.com/oauth2/v2/userinfo'),
-        headers: {'Authorization': 'Bearer $accessToken'},
-      );
-
-      if (userResponse.statusCode != 200) {
-        throw Exception('Failed to fetch Google user profile.');
-      }
-
-      final userInfo = jsonDecode(userResponse.body) as Map<String, dynamic>;
-      final googleId = userInfo['id'] as String? ?? '';
-      final email = userInfo['email'] as String? ?? 'user@google.com';
-      final name = userInfo['name'] as String? ?? email.split('@').first;
-      final picture = userInfo['picture'] as String?;
+      final resData = jsonDecode(backendResponse.body) as Map<String, dynamic>;
+      final userData = resData['user'] as Map<String, dynamic>;
 
       final googleUser = AuthUser(
-        id: 'google_$googleId',
-        email: email,
-        displayName: name,
+        id: userData['id'] as String,
+        email: userData['email'] as String,
+        displayName: userData['displayName'] as String?,
       );
 
       _currentUser = googleUser;
@@ -520,7 +499,7 @@ class AuthService {
       await UserRepository.instance.ensureProfileExists(
         googleUser,
         authProvider: 'google',
-        avatarUrl: picture,
+        avatarUrl: userData['avatarUrl'] as String?,
       );
 
       return true;
