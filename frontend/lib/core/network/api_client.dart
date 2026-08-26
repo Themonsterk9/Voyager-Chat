@@ -18,13 +18,13 @@ class ApiClient {
       return _envBaseUrl;
     }
     if (kIsWeb) {
-      return 'http://localhost:5000';
+      return 'http://localhost:3000';
     }
     if (!kIsWeb && Platform.isAndroid && kDebugMode) {
-      return 'http://10.0.2.2:5000';
+      return 'http://10.0.2.2:3000';
     }
     if (kDebugMode) {
-      return 'http://127.0.0.1:5000';
+      return 'http://127.0.0.1:3000';
     }
     return 'https://api.voyager.chat';
   }
