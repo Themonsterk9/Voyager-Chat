@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { brevoApiKey } = require('../config/env');
+const { brevoApiKey, brevoSenderEmail, brevoSenderName } = require('../config/env');
 
 const otpStore = new Map();
 const rateLimitStore = new Map();
@@ -10,13 +10,32 @@ const MAX_ATTEMPTS = 5;
 const COOLDOWN_MS = 60 * 1000; // 1 minute
 
 function generateOtp() {
-  const num = crypto.randomInt(100000, 999999);
+  const num = crypto.randomInt(100000, 1000000);
   return num.toString();
 }
 
+function hashOtp(otp) {
+  return crypto.createHash('sha256').update(otp).digest('hex');
+}
+
+function recipientDomain(email) {
+  return email.slice(email.lastIndexOf('@') + 1);
+}
+
+function logDelivery(event, { status, messageId, recipient, reason } = {}) {
+  console.info('[BrevoDelivery]', JSON.stringify({
+    timestamp: new Date().toISOString(),
+    event,
+    httpStatus: status,
+    messageId,
+    recipientDomain: recipient ? recipientDomain(recipient) : undefined,
+    deliveryState: reason || (status && status >= 200 && status < 300 ? 'accepted_by_brevo' : 'failed'),
+  }));
+}
+
 async function sendEmailViaBrevo({ to, subject, htmlContent }) {
-  if (!brevoApiKey) {
-    console.warn('[BrevoService] Warning: BREVO_API_KEY is not configured.');
+  if (!brevoApiKey || !brevoSenderEmail) {
+    console.warn('[BrevoService] BREVO_API_KEY or BREVO_SENDER_EMAIL is not configured.');
     return { success: false, reason: 'API_KEY_MISSING' };
   }
 
@@ -29,7 +48,7 @@ async function sendEmailViaBrevo({ to, subject, htmlContent }) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        sender: { name: 'Voyager Chat', email: 'kgsdhakar8107@gmail.com' },
+        sender: { name: brevoSenderName, email: brevoSenderEmail },
         to: [{ email: to }],
         subject: subject,
         htmlContent: htmlContent,
@@ -38,14 +57,17 @@ async function sendEmailViaBrevo({ to, subject, htmlContent }) {
 
     if (response.ok) {
       const data = await response.json().catch(() => ({}));
+      logDelivery('submission_accepted', { status: response.status, messageId: data.messageId, recipient: to });
       return { success: true, messageId: data.messageId };
     }
 
     const errorBody = await response.text();
-    console.error('[BrevoService] Brevo API send error (status code):', response.status, errorBody);
-    return { success: false, reason: 'BREVO_API_ERROR', details: errorBody };
+    logDelivery('submission_rejected', { status: response.status, recipient: to, reason: 'brevo_rejected' });
+    console.error('[BrevoService] Brevo API send error (status code):', response.status);
+    return { success: false, reason: 'BREVO_API_ERROR' };
   } catch (err) {
-    console.error('[BrevoService] Network error connecting to Brevo API:', err.message);
+    logDelivery('submission_failed', { recipient: to, reason: 'network_error' });
+    console.error('[BrevoService] Network error connecting to Brevo API.');
     return { success: false, reason: 'NETWORK_ERROR' };
   }
 }
@@ -65,7 +87,7 @@ async function sendOtpEmail(email, purpose = 'LOGIN') {
   const expiresAt = now + OTP_TTL_MS;
 
   otpStore.set(rateKey, {
-    otp,
+    otpHash: hashOtp(otp),
     expiresAt,
     attempts: 0,
     purpose: normalizedPurpose,
@@ -130,7 +152,10 @@ function verifyOtp(email, inputOtp, purpose = 'LOGIN') {
 
   record.attempts += 1;
 
-  if (record.otp !== inputOtp.trim()) {
+  const suppliedHash = hashOtp(inputOtp.trim());
+  const expectedHash = Buffer.from(record.otpHash, 'hex');
+  const actualHash = Buffer.from(suppliedHash, 'hex');
+  if (expectedHash.length !== actualHash.length || !crypto.timingSafeEqual(expectedHash, actualHash)) {
     return { success: false, message: 'Invalid OTP code. Please try again.' };
   }
 
@@ -180,4 +205,5 @@ module.exports = {
   verifyOtp,
   sendWelcomeEmail,
   sendEmailViaBrevo,
+  logDelivery,
 };
