@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/permissions/permission_helper.dart';
 import '../../../core/transport/mesh/mesh_router.dart';
 import '../../../core/transport/transport_manager.dart';
 
@@ -31,6 +32,8 @@ class _NearbyScreenState extends State<NearbyScreen> {
     if (nearby.isScanning) {
       await nearby.stopScan();
     } else {
+      final hasPerm = await PermissionHelper.instance.ensureNearbyPermissions(context);
+      if (!hasPerm) return;
       await nearby.startScan();
     }
     if (mounted) setState(() {});

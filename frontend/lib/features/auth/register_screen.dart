@@ -70,27 +70,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _registerWithGoogle() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      await AuthService.instance.signInWithGoogle();
-      if (mounted) {
-        context.go('/home');
-      }
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error =
-            'Google Sign-In failed: ${error.toString().replaceAll('Exception: ', '')}';
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,40 +172,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 'Create Account',
                                 style: TextStyle(fontSize: 16),
                               ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: const [
-                          Expanded(child: Divider()),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              'OR',
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          Expanded(child: Divider()),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.g_mobiledata,
-                          size: 28,
-                          color: Colors.redAccent,
-                        ),
-                        label: const Text('Continue with Google'),
-                        onPressed: _loading ? null : _registerWithGoogle,
                       ),
                       const SizedBox(height: 20),
                       Row(

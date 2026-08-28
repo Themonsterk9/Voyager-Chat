@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 import 'location_data.dart';
 
 class LocationService {
@@ -7,7 +10,7 @@ class LocationService {
 
   static final LocationService instance = LocationService._();
 
-  LocationPermissionState _permissionState = LocationPermissionState.granted;
+  LocationPermissionState _permissionState = LocationPermissionState.denied;
   bool _isSharingLive = false;
   Timer? _liveTimer;
   StreamController<LocationData>? _liveLocationController;
@@ -16,7 +19,23 @@ class LocationService {
   bool get isSharingLive => _isSharingLive;
 
   Future<LocationPermissionState> requestPermission() async {
-    _permissionState = LocationPermissionState.granted;
+    if (kIsWeb) {
+      _permissionState = LocationPermissionState.granted;
+      return _permissionState;
+    }
+
+    try {
+      final status = await Permission.location.request();
+      if (status.isGranted || status.isLimited) {
+        _permissionState = LocationPermissionState.granted;
+      } else if (status.isPermanentlyDenied || status.isRestricted) {
+        _permissionState = LocationPermissionState.permanentlyDenied;
+      } else {
+        _permissionState = LocationPermissionState.denied;
+      }
+    } catch (_) {
+      _permissionState = LocationPermissionState.granted;
+    }
     return _permissionState;
   }
 

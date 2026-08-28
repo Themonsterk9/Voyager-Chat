@@ -54,6 +54,7 @@ import 'features/users/screens/new_chat_screen.dart';
 import 'features/users/screens/user_profile_screen.dart';
 import 'features/welcome/welcome_screen.dart';
 
+import 'features/onboarding/permission_onboarding_screen.dart';
 import 'core/services/diagnostics_service.dart';
 import 'features/diagnostics/startup_error_screen.dart';
 
@@ -169,8 +170,7 @@ class _VoyagerChatAppState extends State<VoyagerChatApp>
                   state.matchedLocation == '/register' ||
                   state.matchedLocation == '/otp';
 
-              final isPublicRoute =
-                  state.matchedLocation == '/splash' ||
+              final isPublicRoute = state.matchedLocation == '/splash' ||
                   state.matchedLocation == '/welcome' ||
                   isAuthRoute;
 
@@ -178,13 +178,17 @@ class _VoyagerChatAppState extends State<VoyagerChatApp>
                 return '/home';
               }
 
-              if (!isAuthenticated && state.matchedLocation == '/home') {
-                return '/welcome';
+              if (!isAuthenticated && !isPublicRoute && state.matchedLocation != '/permission-onboarding') {
+                return '/login';
               }
 
               return null;
             },
       routes: [
+        GoRoute(
+          path: '/permission-onboarding',
+          builder: (context, state) => const PermissionOnboardingScreen(),
+        ),
         GoRoute(
           path: '/splash',
           builder: (context, state) => const SplashScreen(),

@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/calling/call_manager.dart';
 import '../../../core/calling/call_models.dart';
+import '../../../core/permissions/permission_helper.dart';
 
 class VideoCallScreen extends StatefulWidget {
   const VideoCallScreen({super.key, required this.recipientName});
@@ -31,8 +33,38 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       }
     });
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkCallPermissions();
+    });
+
     if (_callManager.state == CallState.calling) {
       _callManager.acceptCall();
+    }
+  }
+
+  Future<void> _checkCallPermissions() async {
+    final hasCamera = await PermissionHelper.instance.ensurePermission(
+      context,
+      Permission.camera,
+      title: 'Camera Permission Required',
+      rationale: 'Voyager Chat requires camera access for video calling.',
+    );
+
+    if (!mounted) return;
+
+    final hasMic = await PermissionHelper.instance.ensurePermission(
+      context,
+      Permission.microphone,
+      title: 'Microphone Permission Required',
+      rationale: 'Voyager Chat requires microphone access for video calling.',
+    );
+
+    if ((!hasCamera || !hasMic) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Camera and Microphone permissions are required for video calls.'),
+        ),
+      );
     }
   }
 

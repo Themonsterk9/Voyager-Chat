@@ -11,8 +11,12 @@ void main() {
     () {
       late GroupService groupService;
 
-      setUp(() {
+      setUp(() async {
         groupService = GroupService.instance;
+        try {
+          final db = await AppDatabase.instance.database;
+          await db.delete('group_polls');
+        } catch (_) {}
       });
 
       test('TEST 1 & 2: GroupRole enum parsing and hierarchy order', () {

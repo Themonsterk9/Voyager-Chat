@@ -5,12 +5,14 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/auth/models/auth_user.dart';
 import '../../core/auth/services/auth_service.dart';
 import '../../core/media/media_models.dart';
 import '../../core/media/media_service.dart';
+import '../../core/permissions/permission_helper.dart';
 import '../../core/network/services/storage_service.dart';
 import '../users/models/user_profile.dart';
 import '../users/repositories/user_repository.dart';
@@ -298,6 +300,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _pickImageAttachment() async {
+    final hasPermission = await PermissionHelper.instance.ensureMediaPermission(
+      context,
+      title: 'Photos & Media Permission Required',
+      rationale:
+          'Voyager Chat requires permission to access your photos and media to attach images to chat messages.',
+    );
+    if (!hasPermission) return;
+
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: ImageSource.gallery);
@@ -330,6 +340,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _pickFileAttachment() async {
+    final hasPermission = await PermissionHelper.instance.ensureMediaPermission(
+      context,
+      title: 'Photos & Media Permission Required',
+      rationale:
+          'Voyager Chat requires permission to access media files to attach them to chat messages.',
+    );
+    if (!hasPermission) return;
+
     try {
       final picker = ImagePicker();
       final picked = await picker.pickMedia();
@@ -530,7 +548,19 @@ class _ChatScreenState extends State<ChatScreen> {
     } else if (action == 'file') {
       await _pickFileAttachment();
     } else if (action == 'voice') {
-      _sendMessage(messageType: 'voice', customContent: 'Voice note (0:15)');
+      final hasMic = await PermissionHelper.instance.ensurePermission(
+        context,
+        Permission.microphone,
+        title: 'Microphone Permission Required',
+        rationale:
+            'Voyager Chat requires microphone access to record and send voice notes.',
+      );
+      if (hasMic) {
+        _sendMessage(
+          messageType: 'voice',
+          customContent: 'Voice note (0:15)',
+        );
+      }
     } else if (action == 'schedule') {
       final pickedDate = await showDatePicker(
         context: context,

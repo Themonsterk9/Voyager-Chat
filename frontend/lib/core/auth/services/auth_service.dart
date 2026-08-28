@@ -1,17 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
-import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/auth_user.dart';
 
 import '../../enterprise/enterprise_audit_service.dart';
 import '../../enterprise/enterprise_models.dart';
+import '../../network/api_client.dart';
+import '../../network/socket_client.dart';
 import '../../../features/users/repositories/user_repository.dart';
 
 class AuthService {
@@ -29,26 +27,6 @@ class AuthService {
   bool get isAuthenticated => _currentUser != null;
 
   Stream<AuthUser?> get authStateChanges => _authStateController.stream;
-
-  String _generateRandomString(int length) {
-    final random = Random.secure();
-    final values = List<int>.generate(length, (i) => random.nextInt(256));
-    return base64Url
-        .encode(values)
-        .replaceAll('=', '')
-        .replaceAll('+', '-')
-        .replaceAll('/', '_');
-  }
-
-  String _createCodeChallenge(String verifier) {
-    final bytes = ascii.encode(verifier);
-    final digest = sha256.convert(bytes);
-    return base64Url
-        .encode(digest.bytes)
-        .replaceAll('=', '')
-        .replaceAll('+', '-')
-        .replaceAll('/', '_');
-  }
 
   Future<AuthUser> register({
     required String email,
@@ -74,6 +52,7 @@ class AuthService {
 
     _currentUser = user;
     _authStateController.add(_currentUser);
+    SocketClient.instance.connect(user.id);
 
     await UserRepository.instance.ensureProfileExists(
       user,
@@ -120,6 +99,7 @@ class AuthService {
 
     _currentUser = user;
     _authStateController.add(_currentUser);
+    SocketClient.instance.connect(user.id);
 
     await UserRepository.instance.ensureProfileExists(
       user,
@@ -135,22 +115,7 @@ class AuthService {
     return user;
   }
 
-  String get backendBaseUrl {
-    const envUrl = String.fromEnvironment('BACKEND_URL', defaultValue: '');
-    if (envUrl.isNotEmpty) {
-      return envUrl;
-    }
-    if (kIsWeb) {
-      return 'http://localhost:3000';
-    }
-    if (!kIsWeb && Platform.isAndroid && kDebugMode) {
-      return 'http://10.0.2.2:3000';
-    }
-    if (kDebugMode) {
-      return 'http://127.0.0.1:3000';
-    }
-    return 'https://api.voyager.chat';
-  }
+  String get backendBaseUrl => ApiClient.baseUrl;
 
   Future<bool> sendBrevoOtp(
     String email, {
@@ -248,6 +213,7 @@ class AuthService {
 
     _currentUser = user;
     _authStateController.add(_currentUser);
+    SocketClient.instance.connect(user.id);
 
     await UserRepository.instance.ensureProfileExists(
       user,
@@ -329,182 +295,8 @@ class AuthService {
     }
   }
 
-  Future<bool> signInWithGoogle() async {
-    try {
-      final String clientId = (!kIsWeb && Platform.isAndroid)
-          ? const String.fromEnvironment(
-              'GOOGLE_CLIENT_ID_ANDROID',
-              defaultValue: '719816304147-f4pufd1aq2bq89o7v0fjhh1qr1m1mobv.apps.googleusercontent.com',
-            )
-          : (!kIsWeb && Platform.isIOS)
-          ? const String.fromEnvironment(
-              'GOOGLE_CLIENT_ID_IOS',
-              defaultValue: 'YOUR_GOOGLE_CLIENT_ID_IOS',
-            )
-          : const String.fromEnvironment(
-              'GOOGLE_CLIENT_ID',
-              defaultValue: '719816304147-g75e4d8bdfhavco3fjm0m9coaalheas2.apps.googleusercontent.com',
-            );
-      final state = _generateRandomString(16);
-      final codeVerifier = _generateRandomString(32);
-      final codeChallenge = _createCodeChallenge(codeVerifier);
-
-      if (kIsWeb) {
-        final redirectUri = Uri.base.origin;
-        final oauthUrl = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
-          'client_id': clientId,
-          'redirect_uri': redirectUri,
-          'response_type': 'code',
-          'scope': 'openid email profile',
-          'state': state,
-          'code_challenge': codeChallenge,
-          'code_challenge_method': 'S256',
-          'prompt': 'select_account',
-        });
-        if (await canLaunchUrl(oauthUrl)) {
-          await launchUrl(oauthUrl, mode: LaunchMode.externalApplication);
-          return true;
-        }
-        return false;
-      }
-
-      HttpServer? server;
-      try {
-        server = await HttpServer.bind(InternetAddress.loopbackIPv4, 8080);
-      } catch (_) {
-        server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      }
-
-      final port = server.port;
-      final redirectUri = 'http://127.0.0.1:$port/';
-
-      final oauthUrl = Uri.https('accounts.google.com', '/o/oauth2/v2/auth', {
-        'client_id': clientId,
-        'redirect_uri': redirectUri,
-        'response_type': 'code',
-        'scope': 'openid email profile',
-        'state': state,
-        'code_challenge': codeChallenge,
-        'code_challenge_method': 'S256',
-        'prompt': 'select_account',
-      });
-
-      if (!await canLaunchUrl(oauthUrl)) {
-        await server.close();
-        throw Exception('Could not launch system browser.');
-      }
-
-      await launchUrl(oauthUrl, mode: LaunchMode.externalApplication);
-
-      final Completer<String> codeCompleter = Completer<String>();
-
-      server.listen((HttpRequest request) async {
-        final uri = request.uri;
-        final returnedState = uri.queryParameters['state'];
-        final code = uri.queryParameters['code'];
-        final error = uri.queryParameters['error'];
-
-        const responseHtml = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Voyager Chat - Authentication Complete</title>
-</head>
-<body style="font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding-top: 80px;">
-  <div style="max-width: 480px; margin: 0 auto; background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-    <h1 style="color: #38bdf8; margin-bottom: 12px;">Authentication Successful</h1>
-    <p style="font-size: 16px; color: #94a3b8;">You have successfully signed in to Voyager Chat.</p>
-    <p style="color: #64748b; font-size: 14px; margin-top: 24px;">You can now close this browser tab and return to the Voyager Chat app.</p>
-  </div>
-  <script>setTimeout(function() { window.close(); }, 3000);</script>
-</body>
-</html>
-''';
-
-        request.response.headers.contentType = ContentType.html;
-        request.response.statusCode = 200;
-        request.response.write(responseHtml);
-        await request.response.close();
-
-        if (returnedState != state) {
-          if (!codeCompleter.isCompleted) {
-            codeCompleter.completeError(
-              Exception('OAuth Security Error: State parameter mismatch.'),
-            );
-          }
-          return;
-        }
-
-        if (error != null && error.isNotEmpty) {
-          if (!codeCompleter.isCompleted) {
-            codeCompleter.completeError(
-              Exception('Google OAuth Error: $error'),
-            );
-          }
-          return;
-        }
-
-        if (code != null && code.isNotEmpty) {
-          if (!codeCompleter.isCompleted) {
-            codeCompleter.complete(code);
-          }
-        }
-      });
-
-      final authCode = await codeCompleter.future.timeout(
-        const Duration(minutes: 3),
-        onTimeout: () {
-          server?.close();
-          throw Exception('Google Sign-In timed out. Please try again.');
-        },
-      );
-
-      await server.close();
-
-      final backendResponse = await http.post(
-        Uri.parse('$backendBaseUrl/api/auth/google'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'code': authCode,
-          'redirect_uri': redirectUri,
-          'code_verifier': codeVerifier,
-          'client_id': clientId,
-        }),
-      );
-
-      if (backendResponse.statusCode != 200) {
-        final errData = jsonDecode(backendResponse.body);
-        throw Exception(
-          errData['message'] ?? 'Google authentication failed on backend.',
-        );
-      }
-
-      final resData = jsonDecode(backendResponse.body) as Map<String, dynamic>;
-      final userData = resData['user'] as Map<String, dynamic>;
-
-      final googleUser = AuthUser(
-        id: userData['id'] as String,
-        email: userData['email'] as String,
-        displayName: userData['displayName'] as String?,
-      );
-
-      _currentUser = googleUser;
-      _authStateController.add(_currentUser);
-
-      await UserRepository.instance.ensureProfileExists(
-        googleUser,
-        authProvider: 'google',
-        avatarUrl: userData['avatarUrl'] as String?,
-      );
-
-      return true;
-    } catch (e) {
-      throw Exception('Google Sign-In failed: $e');
-    }
-  }
-
   Future<void> logout() async {
+    SocketClient.instance.disconnect();
     _currentUser = null;
     _authStateController.add(null);
   }

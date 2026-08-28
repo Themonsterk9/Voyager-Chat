@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/services/auth_service.dart';
+import '../../core/permissions/permission_helper.dart';
 
 class OtpScreen extends StatefulWidget {
   final String email;
@@ -142,8 +143,13 @@ class _OtpScreenState extends State<OtpScreen> {
       }
 
       if (!mounted) return;
-      // Successful verification for LOGIN or REGISTRATION -> Go to /home
-      context.go('/home');
+      final hasOnboarded = await PermissionHelper.instance.hasCompletedOnboarding();
+      if (!mounted) return;
+      if (hasOnboarded) {
+        context.go('/home');
+      } else {
+        context.go('/permission-onboarding');
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/meetings/meeting_models.dart';
 import '../../../core/meetings/meeting_service.dart';
+import '../../../core/permissions/permission_helper.dart';
 
 class MeetingLobbyScreen extends StatefulWidget {
   const MeetingLobbyScreen({super.key, required this.meetingId});
@@ -179,8 +181,25 @@ class _MeetingLobbyScreenState extends State<MeetingLobbyScreen> {
                 'Enter Meeting Room',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              onPressed: () {
-                context.push('/meeting/room/${widget.meetingId}');
+              onPressed: () async {
+                final nav = GoRouter.of(context);
+                await PermissionHelper.instance.ensurePermission(
+                  context,
+                  Permission.camera,
+                  title: 'Camera Permission Required',
+                  rationale: 'Voyager Chat requires camera access for meetings.',
+                );
+                if (!mounted || !context.mounted) return;
+
+                await PermissionHelper.instance.ensurePermission(
+                  context,
+                  Permission.microphone,
+                  title: 'Microphone Permission Required',
+                  rationale: 'Voyager Chat requires microphone access for meetings.',
+                );
+                if (!mounted) return;
+
+                nav.push('/meeting/room/${widget.meetingId}');
               },
             ),
           ],

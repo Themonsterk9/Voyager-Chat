@@ -118,6 +118,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => context.push('/settings/devices'),
           ),
           ListTile(
+            leading: const Icon(Icons.shield, color: Colors.greenAccent),
+            title: const Text('Feature Permissions Onboarding'),
+            subtitle: const Text(
+              'Manage camera, microphone, location & notifications',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/permission-onboarding'),
+          ),
+          ListTile(
             leading: const Icon(Icons.security, color: Colors.orangeAccent),
             title: const Text('Account Security & Data Export'),
             subtitle: const Text('Data export JSON & account deletion'),

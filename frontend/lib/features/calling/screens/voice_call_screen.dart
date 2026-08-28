@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/calling/call_manager.dart';
 import '../../../core/calling/call_models.dart';
+import '../../../core/permissions/permission_helper.dart';
 
 class VoiceCallScreen extends StatefulWidget {
   const VoiceCallScreen({super.key, required this.recipientName});
@@ -31,8 +33,28 @@ class _VoiceCallScreenState extends State<VoiceCallScreen> {
       }
     });
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkCallPermissions();
+    });
+
     if (_callManager.state == CallState.calling) {
       _callManager.acceptCall();
+    }
+  }
+
+  Future<void> _checkCallPermissions() async {
+    final hasMic = await PermissionHelper.instance.ensurePermission(
+      context,
+      Permission.microphone,
+      title: 'Microphone Permission Required',
+      rationale: 'Voyager Chat requires microphone access for voice calling.',
+    );
+    if (!hasMic && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Microphone permission is required for voice calls.'),
+        ),
+      );
     }
   }
 

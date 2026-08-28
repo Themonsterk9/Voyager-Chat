@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide AuthUser;
 import '../../../core/auth/models/auth_user.dart';
 import '../../../core/auth/services/auth_service.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/network/api_client.dart';
 import '../models/user_profile.dart';
 
 class UserRepository {
@@ -95,6 +96,10 @@ class UserRepository {
     await saveLocalProfile(profile);
 
     try {
+      await ApiClient.instance.dio.post('/api/users/profile', data: profile.toMap());
+    } catch (_) {}
+
+    try {
       await _client.from('profiles').upsert(profile.toMap());
     } catch (_) {}
 
@@ -155,6 +160,21 @@ class UserRepository {
     if (search.isEmpty) {
       return [];
     }
+
+    try {
+      final res = await ApiClient.instance.dio.get(
+        '/api/users/search',
+        queryParameters: {'q': search, 'excludeUserId': user.id},
+      );
+      if (res.data != null && res.data['users'] is List) {
+        final list = res.data['users'] as List;
+        final results = list.map((row) => UserProfile.fromMap(Map<String, dynamic>.from(row as Map))).toList();
+        for (final p in results) {
+          await saveLocalProfile(p);
+        }
+        return results;
+      }
+    } catch (_) {}
 
     try {
       final response = await _client

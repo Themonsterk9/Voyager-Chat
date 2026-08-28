@@ -17,13 +17,13 @@ class ApiClient {
     if (_envBaseUrl.isNotEmpty) {
       return _envBaseUrl;
     }
-    if (kIsWeb) {
+    if (!kReleaseMode && kIsWeb && kDebugMode) {
       return 'http://localhost:3000';
     }
-    if (!kIsWeb && Platform.isAndroid && kDebugMode) {
+    if (!kReleaseMode && !kIsWeb && Platform.isAndroid && kDebugMode) {
       return 'http://10.0.2.2:3000';
     }
-    if (kDebugMode) {
+    if (!kReleaseMode && kDebugMode) {
       return 'http://127.0.0.1:3000';
     }
     return 'https://api.voyager.chat';

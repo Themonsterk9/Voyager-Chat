@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../database/app_database.dart';
@@ -85,7 +87,19 @@ class NotificationManager {
   }
 
   Future<NotificationPermissionState> requestPermission() async {
-    _permissionState = NotificationPermissionState.granted;
+    if (kIsWeb) {
+      _permissionState = NotificationPermissionState.granted;
+      return _permissionState;
+    }
+
+    final status = await Permission.notification.request();
+    if (status.isGranted || status.isLimited) {
+      _permissionState = NotificationPermissionState.granted;
+    } else if (status.isPermanentlyDenied || status.isRestricted) {
+      _permissionState = NotificationPermissionState.denied;
+    } else {
+      _permissionState = NotificationPermissionState.denied;
+    }
     return _permissionState;
   }
 

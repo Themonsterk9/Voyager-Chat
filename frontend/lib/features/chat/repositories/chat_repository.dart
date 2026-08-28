@@ -3,6 +3,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/auth/models/auth_user.dart';
 import '../../../core/auth/services/auth_service.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/socket_client.dart';
 import '../models/conversation.dart';
 import '../models/conversation_member.dart';
 import '../models/message.dart';
@@ -24,6 +26,23 @@ class ChatRepository {
     if (user == null) {
       return [];
     }
+
+    try {
+      final res = await ApiClient.instance.dio.get(
+        '/api/chat/conversations',
+        queryParameters: {'userId': user.id},
+      );
+      if (res.data != null && res.data['conversations'] is List) {
+        final list = res.data['conversations'] as List;
+        return list
+            .map(
+              (c) => Conversation.fromMap(
+                Map<String, dynamic>.from(c as Map),
+              ),
+            )
+            .toList();
+      }
+    } catch (_) {}
 
     final response = await _client
         .from('conversation_members')
@@ -145,6 +164,24 @@ class ChatRepository {
   }
 
   Future<List<Message>> getMessages(String conversationId) async {
+    try {
+      final user = currentUser;
+      final res = await ApiClient.instance.dio.get(
+        '/api/chat/conversations/$conversationId/messages',
+        queryParameters: user != null ? {'userId': user.id} : null,
+      );
+      if (res.data != null && res.data['messages'] is List) {
+        final list = res.data['messages'] as List;
+        return list
+            .map(
+              (m) => Message.fromMap(
+                Map<String, dynamic>.from(m as Map),
+              ),
+            )
+            .toList();
+      }
+    } catch (_) {}
+
     final response = await _client
         .from('messages')
         .select()
@@ -168,6 +205,38 @@ class ChatRepository {
     if (user == null) {
       throw const AuthException('You must be logged in to send a message.');
     }
+
+    try {
+      final socketRes = await SocketClient.instance.sendMessage(
+        conversationId: conversationId,
+        senderId: user.id,
+        content: content,
+        messageType: messageType,
+        clientMessageId: clientMessageId,
+        replyToMessageId: replyToMessageId,
+      );
+      if (socketRes != null) {
+        return Message.fromMap(socketRes);
+      }
+    } catch (_) {}
+
+    try {
+      final res = await ApiClient.instance.dio.post(
+        '/api/chat/conversations/$conversationId/messages',
+        data: {
+          'senderId': user.id,
+          'content': content,
+          'messageType': messageType,
+          'clientMessageId': clientMessageId,
+          'replyToMessageId': replyToMessageId,
+        },
+      );
+      if (res.data != null && res.data['message'] != null) {
+        return Message.fromMap(
+          Map<String, dynamic>.from(res.data['message'] as Map),
+        );
+      }
+    } catch (_) {}
 
     final response = await _client
         .from('messages')
@@ -527,6 +596,21 @@ class ChatRepository {
         'You cannot start a conversation with yourself.',
       );
     }
+
+    try {
+      final res = await ApiClient.instance.dio.post(
+        '/api/chat/conversations/direct',
+        data: {
+          'userId': user.id,
+          'otherUserId': otherUserId,
+        },
+      );
+      if (res.data != null && res.data['conversation'] != null) {
+        return Conversation.fromMap(
+          Map<String, dynamic>.from(res.data['conversation'] as Map),
+        );
+      }
+    } catch (_) {}
 
     final existing = await findDirectConversation(otherUserId);
 

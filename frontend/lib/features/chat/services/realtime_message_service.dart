@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/socket_client.dart';
 import '../models/message.dart';
 import '../repositories/local_chat_repository.dart';
 
@@ -41,6 +42,24 @@ class RealtimeMessageService {
 
     _listeners[conversationId] = [onEvent];
 
+    // 1. Subscribe via Socket.IO
+    SocketClient.instance.subscribeToMessages(conversationId, (data) async {
+      try {
+        final message = Message.fromMap(data);
+        if (message.conversationId == conversationId) {
+          await _localRepo.saveMessage(message);
+          _notifyListeners(
+            conversationId,
+            RealtimeMessageEvent(
+              type: RealtimeEventType.insert,
+              message: message,
+            ),
+          );
+        }
+      } catch (_) {}
+    });
+
+    // 2. Subscribe via Supabase Realtime
     final channelName = 'public:messages:conversation_id=eq.$conversationId';
     final channel = _client.channel(channelName);
 
