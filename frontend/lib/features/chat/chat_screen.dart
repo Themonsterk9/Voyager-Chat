@@ -5,7 +5,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/auth/models/auth_user.dart';
@@ -299,46 +298,6 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  Future<void> _pickImageAttachment() async {
-    final hasPermission = await PermissionHelper.instance.ensureMediaPermission(
-      context,
-      title: 'Photos & Media Permission Required',
-      rationale:
-          'Voyager Chat requires permission to access your photos and media to attach images to chat messages.',
-    );
-    if (!hasPermission) return;
-
-    try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(source: ImageSource.gallery);
-      if (picked == null) return;
-
-      final bytes = await picked.readAsBytes();
-      if (bytes.length > 10 * 1024 * 1024) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File exceeds maximum limit of 10 MB.')),
-        );
-        return;
-      }
-
-      final ext = picked.name.split('.').last.toLowerCase();
-      final mimeType = ext == 'png'
-          ? 'image/png'
-          : (ext == 'gif' ? 'image/gif' : 'image/jpeg');
-
-      setState(() {
-        _selectedAttachmentBytes = bytes;
-        _selectedAttachmentName = picked.name;
-        _selectedAttachmentMimeType = mimeType;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Could not pick image: $e')));
-    }
-  }
-
   Future<void> _pickFileAttachment() async {
     final hasPermission = await PermissionHelper.instance.ensureMediaPermission(
       context,
@@ -516,6 +475,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ListTile(
               leading: const Icon(Icons.image, color: Colors.blueAccent),
               title: const Text('Pick Image from Gallery'),
+              subtitle: const Text('COMING SOON', style: TextStyle(fontSize: 10, color: Colors.amber)),
               onTap: () => Navigator.pop(context, 'image'),
             ),
             ListTile(
@@ -528,12 +488,14 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.mic, color: Colors.greenAccent),
-              title: const Text('Send Voice Note (Demo)'),
+              title: const Text('Send Voice Note'),
+              subtitle: const Text('COMING SOON', style: TextStyle(fontSize: 10, color: Colors.amber)),
               onTap: () => Navigator.pop(context, 'voice'),
             ),
             ListTile(
               leading: const Icon(Icons.schedule, color: Colors.purpleAccent),
               title: const Text('Schedule Message'),
+              subtitle: const Text('COMING SOON', style: TextStyle(fontSize: 10, color: Colors.amber)),
               onTap: () => Navigator.pop(context, 'schedule'),
             ),
           ],
@@ -544,36 +506,25 @@ class _ChatScreenState extends State<ChatScreen> {
     if (action == null || !mounted) return;
 
     if (action == 'image') {
-      await _pickImageAttachment();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Camera & Photo sharing features are Coming Soon in the next release!'),
+        ),
+      );
     } else if (action == 'file') {
       await _pickFileAttachment();
     } else if (action == 'voice') {
-      final hasMic = await PermissionHelper.instance.ensurePermission(
-        context,
-        Permission.microphone,
-        title: 'Microphone Permission Required',
-        rationale:
-            'Voyager Chat requires microphone access to record and send voice notes.',
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Voice messaging and calls are Coming Soon!'),
+        ),
       );
-      if (hasMic) {
-        _sendMessage(
-          messageType: 'voice',
-          customContent: 'Voice note (0:15)',
-        );
-      }
     } else if (action == 'schedule') {
-      final pickedDate = await showDatePicker(
-        context: context,
-        initialDate: DateTime.now().add(const Duration(hours: 1)),
-        firstDate: DateTime.now(),
-        lastDate: DateTime.now().add(const Duration(days: 30)),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Scheduled messaging is Coming Soon!'),
+        ),
       );
-      if (pickedDate != null && mounted) {
-        final text = _messageController.text.trim();
-        if (text.isNotEmpty) {
-          _sendMessage(scheduledAt: pickedDate);
-        }
-      }
     }
   }
 

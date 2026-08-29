@@ -137,10 +137,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.smart_toy, color: Colors.purpleAccent),
             title: const Text('AI & Smart Assistant Preferences'),
             subtitle: const Text(
-              'Local LLM, Smart Replies, Translation & Privacy',
+              'COMING SOON - Smart Replies, Translation & AI',
             ),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/ai-preferences'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('AI Assistant features are Coming Soon!')),
+              );
+            },
           ),
           ListTile(
             leading: const Icon(
@@ -268,9 +272,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.phone, color: Colors.greenAccent),
             title: const Text('Call History'),
-            subtitle: const Text('Voice & video call log metrics'),
+            subtitle: const Text('COMING SOON - Voice & video calls'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/call-history'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Voice & Video calling features are Coming Soon!')),
+              );
+            },
           ),
           const Divider(),
           const Padding(
@@ -322,10 +330,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.map, color: Colors.blueAccent),
             title: const Text('OpenStreetMap & Emergency Share'),
             subtitle: const Text(
-              'Interactive map, live location & emergency triggers',
+              'COMING SOON - Interactive map & live location',
             ),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/map'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Location sharing features are Coming Soon!')),
+              );
+            },
           ),
           const Divider(),
           const Padding(

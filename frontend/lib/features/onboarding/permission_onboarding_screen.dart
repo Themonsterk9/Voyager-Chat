@@ -18,8 +18,6 @@ class PermissionOnboardingScreen extends StatefulWidget {
 class _PermissionOnboardingScreenState
     extends State<PermissionOnboardingScreen> {
   bool _notificationGranted = false;
-  bool _cameraMicGranted = false;
-  bool _locationGranted = false;
   bool _nearbyGranted = false;
   bool _checking = true;
 
@@ -34,8 +32,6 @@ class _PermissionOnboardingScreenState
       if (mounted) {
         setState(() {
           _notificationGranted = true;
-          _cameraMicGranted = true;
-          _locationGranted = true;
           _nearbyGranted = true;
           _checking = false;
         });
@@ -44,17 +40,11 @@ class _PermissionOnboardingScreenState
     }
 
     final notif = await Permission.notification.status;
-    final cam = await Permission.camera.status;
-    final mic = await Permission.microphone.status;
-    final loc = await Permission.location.status;
     final btScan = await Permission.bluetoothScan.status;
 
     if (mounted) {
       setState(() {
         _notificationGranted = notif.isGranted || notif.isLimited;
-        _cameraMicGranted =
-            (cam.isGranted || cam.isLimited) && (mic.isGranted || mic.isLimited);
-        _locationGranted = loc.isGranted || loc.isLimited;
         _nearbyGranted = btScan.isGranted || btScan.isLimited;
         _checking = false;
       });
@@ -64,19 +54,6 @@ class _PermissionOnboardingScreenState
   Future<void> _requestNotificationPermission() async {
     if (kIsWeb || Platform.isWindows) return;
     await Permission.notification.request();
-    await _checkInitialStatuses();
-  }
-
-  Future<void> _requestCameraMicPermission() async {
-    if (kIsWeb || Platform.isWindows) return;
-    await Permission.camera.request();
-    await Permission.microphone.request();
-    await _checkInitialStatuses();
-  }
-
-  Future<void> _requestLocationPermission() async {
-    if (kIsWeb || Platform.isWindows) return;
-    await Permission.location.request();
     await _checkInitialStatuses();
   }
 
@@ -232,7 +209,7 @@ class _PermissionOnboardingScreenState
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Enable permissions for features you wish to use. You can skip any optional capability and enable it later.',
+                            'Enable key permissions for messaging and offline mesh connectivity. You can update these settings anytime.',
                             style: TextStyle(
                               fontSize: 14,
                               color: Theme.of(context)
@@ -248,31 +225,15 @@ class _PermissionOnboardingScreenState
                             icon: Icons.notifications_active_outlined,
                             title: 'Notifications',
                             description:
-                                'Receive instant alerts for incoming messages and calls.',
+                                'Receive instant alerts for new incoming messages.',
                             isGranted: _notificationGranted,
                             onRequest: _requestNotificationPermission,
-                          ),
-                          _buildPermissionTile(
-                            icon: Icons.videocam_outlined,
-                            title: 'Camera & Microphone',
-                            description:
-                                'Make high-definition voice and video calls and take photos.',
-                            isGranted: _cameraMicGranted,
-                            onRequest: _requestCameraMicPermission,
-                          ),
-                          _buildPermissionTile(
-                            icon: Icons.location_on_outlined,
-                            title: 'Location Sharing',
-                            description:
-                                'Share live location in chat threads and map views.',
-                            isGranted: _locationGranted,
-                            onRequest: _requestLocationPermission,
                           ),
                           _buildPermissionTile(
                             icon: Icons.bluetooth_searching_outlined,
                             title: 'Offline Mesh Discovery',
                             description:
-                                'Connect with nearby mesh peers over Bluetooth when offline.',
+                                'Discover and connect with nearby Voyager devices over Bluetooth when offline.',
                             isGranted: _nearbyGranted,
                             onRequest: _requestNearbyPermission,
                           ),
