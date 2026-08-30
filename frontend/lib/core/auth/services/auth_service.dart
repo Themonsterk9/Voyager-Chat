@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/auth_user.dart';
 
@@ -17,6 +18,9 @@ class AuthService {
 
   static final AuthService instance = AuthService._();
 
+  static const String _userStorageKey = 'auth_user_data';
+  static const String _sessionTokenStorageKey = 'auth_user_session_token';
+
   AuthUser? _currentUser;
 
   final StreamController<AuthUser?> _authStateController =
@@ -27,6 +31,88 @@ class AuthService {
   bool get isAuthenticated => _currentUser != null;
 
   Stream<AuthUser?> get authStateChanges => _authStateController.stream;
+
+  Future<void> _saveSession(AuthUser user, [String? sessionToken]) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userStorageKey, jsonEncode(user.toMap()));
+      if (sessionToken != null && sessionToken.isNotEmpty) {
+        await prefs.setString(_sessionTokenStorageKey, sessionToken);
+      }
+    } catch (e) {
+      // Storage error ignored gracefully
+    }
+  }
+
+  Future<void> _clearSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userStorageKey);
+      await prefs.remove(_sessionTokenStorageKey);
+    } catch (e) {
+      // Storage error ignored gracefully
+    }
+  }
+
+  Future<AuthUser?> restoreSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userDataJson = prefs.getString(_userStorageKey);
+      if (userDataJson == null || userDataJson.isEmpty) {
+        _currentUser = null;
+        _authStateController.add(null);
+        return null;
+      }
+
+      final Map<String, dynamic> userMap =
+          jsonDecode(userDataJson) as Map<String, dynamic>;
+      AuthUser restoredUser = AuthUser.fromMap(userMap);
+      final token = prefs.getString(_sessionTokenStorageKey);
+
+      if (token != null && token.isNotEmpty) {
+        try {
+          final response = await http
+              .get(
+                Uri.parse('$backendBaseUrl/api/auth/session'),
+                headers: {
+                  'Authorization': 'Bearer $token',
+                  'Content-Type': 'application/json',
+                },
+              )
+              .timeout(const Duration(seconds: 5));
+
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            if (data['status'] == 'success' && data['user'] != null) {
+              restoredUser =
+                  AuthUser.fromMap(Map<String, dynamic>.from(data['user']));
+            }
+          } else if (response.statusCode == 401) {
+            await _clearSession();
+            _currentUser = null;
+            _authStateController.add(null);
+            return null;
+          }
+        } on TimeoutException {
+          // Network offline / timeout: retain local session
+        } on SocketException {
+          // Network offline: retain local session
+        } catch (_) {
+          // Other network failure: retain local session
+        }
+      }
+
+      _currentUser = restoredUser;
+      _authStateController.add(_currentUser);
+      await _saveSession(_currentUser!, token);
+      SocketClient.instance.connect(_currentUser!.id);
+      return _currentUser;
+    } catch (e) {
+      _currentUser = null;
+      _authStateController.add(null);
+      return null;
+    }
+  }
 
   Future<AuthUser> register({
     required String email,
@@ -52,6 +138,7 @@ class AuthService {
 
     _currentUser = user;
     _authStateController.add(_currentUser);
+    await _saveSession(user);
     SocketClient.instance.connect(user.id);
 
     await UserRepository.instance.ensureProfileExists(
@@ -99,6 +186,7 @@ class AuthService {
 
     _currentUser = user;
     _authStateController.add(_currentUser);
+    await _saveSession(user);
     SocketClient.instance.connect(user.id);
 
     await UserRepository.instance.ensureProfileExists(
@@ -172,6 +260,9 @@ class AuthService {
       throw Exception('Invalid OTP. Please check the code sent to your email.');
     }
 
+    String? sessionToken;
+    AuthUser user;
+
     try {
       final response = await http
           .post(
@@ -192,6 +283,24 @@ class AuthService {
             data['message'] ?? 'Invalid OTP code. Please try again.',
           );
         }
+        if (data['session'] is String) {
+          sessionToken = data['session'] as String;
+        }
+        if (data['user'] is Map) {
+          user = AuthUser.fromMap(Map<String, dynamic>.from(data['user']));
+        } else {
+          user = AuthUser(
+            id: 'usr_otp_${trimmedEmail.hashCode.abs()}',
+            email: trimmedEmail,
+            displayName: trimmedEmail.split('@').first,
+          );
+        }
+      } else {
+        user = AuthUser(
+          id: 'usr_otp_${trimmedEmail.hashCode.abs()}',
+          email: trimmedEmail,
+          displayName: trimmedEmail.split('@').first,
+        );
       }
     } on TimeoutException {
       throw Exception('Unable to contact authentication server.');
@@ -204,15 +313,9 @@ class AuthService {
       throw Exception('Invalid OTP code. Please try again.');
     }
 
-    final id = 'usr_otp_${trimmedEmail.hashCode.abs()}';
-    final user = AuthUser(
-      id: id,
-      email: trimmedEmail,
-      displayName: trimmedEmail.split('@').first,
-    );
-
     _currentUser = user;
     _authStateController.add(_currentUser);
+    await _saveSession(user, sessionToken);
     SocketClient.instance.connect(user.id);
 
     await UserRepository.instance.ensureProfileExists(
@@ -297,6 +400,7 @@ class AuthService {
 
   Future<void> logout() async {
     SocketClient.instance.disconnect();
+    await _clearSession();
     _currentUser = null;
     _authStateController.add(null);
   }

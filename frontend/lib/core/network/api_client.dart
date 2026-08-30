@@ -26,7 +26,7 @@ class ApiClient {
     if (!kReleaseMode && kDebugMode) {
       return 'http://127.0.0.1:3000';
     }
-    return 'https://api.voyager.chat';
+    return 'https://voyager-chat-hlvt.onrender.com';
   }
 
   late final Dio dio = Dio(
